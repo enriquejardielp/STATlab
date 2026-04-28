@@ -216,3 +216,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Archivos de datos subidos por usuarios (no versionar)
+datasets/
+*.xlsx
+*.csv
+!datos_ejemplo.csv
+
+# Streamlit (ya lo tienes, solo confirmo)
+.streamlit/secrets.toml
