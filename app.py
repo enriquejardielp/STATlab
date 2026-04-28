@@ -97,7 +97,7 @@ if archivo is not None:
     ])
     
     # ---------------------------------------------------- TAB 1: VISTA PREVIA
-   with tab1:
+    with tab1:
         st.subheader("🔍 Vista previa de los datos")
         st.dataframe(df, use_container_width=True, height=400)
         
