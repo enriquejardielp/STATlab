@@ -250,162 +250,598 @@ if archivo is not None:
             st.warning("⚠️ No hay columnas numéricas para graficar.")
     
     # ---------------------------------------------------- TAB 4: TESTS
+      
     with tab4:
         st.subheader("🔬 Tests Estadísticos")
         
-        if cols_numericas:
-            test_seleccionado = st.selectbox(
-                "Selecciona una prueba:",
+        # Selector de categoría
+        categoria = st.selectbox(
+            "Selecciona una categoría:",
+            [
+                "📊 Descriptivos y Frecuencia",
+                "⚖️ Medidas de Asociación y Efecto",
+                "🧪 Inferencia",
+                "🧬 Pruebas Estadísticas",
+                "📈 Modelos",
+                "⏳ Supervivencia",
+                "🧫 Pruebas Diagnósticas"
+            ]
+        )
+        
+        st.divider()
+        
+        # ============================================================
+        # 📊 DESCRIPTIVOS Y FRECUENCIA
+        # ============================================================
+        if categoria == "📊 Descriptivos y Frecuencia":
+            test_desc = st.selectbox(
+                "Selecciona un análisis:",
                 [
-                    "Test de Normalidad (Shapiro-Wilk)",
-                    "Test t para una muestra",
-                    "Test t para muestras independientes",
-                    "Correlación de Pearson",
-                    "Correlación de Spearman"
+                    "Media, mediana y moda",
+                    "Desviación estándar, varianza y rango",
+                    "Percentiles y cuartiles",
+                    "Proporciones y tasas"
                 ]
             )
             
-            # --- TEST DE NORMALIDAD ---
-            if test_seleccionado == "Test de Normalidad (Shapiro-Wilk)":
-                col_norm = st.selectbox("Columna a evaluar", cols_numericas, key="norm_col")
-                
-                if st.button("🔬 Ejecutar Shapiro-Wilk", type="primary"):
-                    stat, p = stats.shapiro(df[col_norm].dropna())
+            if cols_numericas:
+                # --- Media, mediana y moda ---
+                if test_desc == "Media, mediana y moda":
+                    col_sel = st.selectbox("Columna numérica", cols_numericas, key="desc_mmm")
+                    datos = df[col_sel].dropna()
                     
-                    col_r1, col_r2 = st.columns(2)
-                    col_r1.metric("Estadístico W", f"{stat:.4f}")
-                    col_r2.metric("p-valor", f"{p:.4f}")
-                    
-                    st.write("---")
-                    st.write("**Hipótesis:**")
-                    st.write("- H₀: Los datos provienen de una distribución normal")
-                    st.write("- H₁: Los datos NO provienen de una distribución normal")
-                    
-                    alpha = st.slider("Nivel de significancia (α)", 0.01, 0.10, 0.05, 0.01)
-                    
-                    if p > alpha:
-                        st.success(f"✅ No se rechaza H₀ (p={p:.4f} > α={alpha}). Los datos parecen normales.")
+                    # Calcular moda
+                    moda_vals = datos.mode()
+                    if len(moda_vals) > 0:
+                        moda_str = ", ".join([f"{v:.2f}" for v in moda_vals.values])
                     else:
-                        st.warning(f"⚠️ Se rechaza H₀ (p={p:.4f} ≤ α={alpha}). Los datos NO parecen normales.")
-            
-            # --- TEST T UNA MUESTRA ---
-            elif test_seleccionado == "Test t para una muestra":
-                col_ttest1 = st.selectbox("Columna", cols_numericas, key="ttest1_col")
-                media_hip = st.number_input("Media hipotética (H₀)", value=0.0, step=0.1)
+                        moda_str = "No hay moda"
+                    
+                    c1, c2, c3 = st.columns(3)
+                    c1.metric("Media", f"{datos.mean():.3f}")
+                    c2.metric("Mediana", f"{datos.median():.3f}")
+                    c3.metric("Moda", moda_str)
+                    
+                    # Histograma con líneas
+                    fig = px.histogram(datos, nbins=30, title=f"Distribución de {col_sel}")
+                    fig.add_vline(x=datos.mean(), line_color="red", annotation_text="Media")
+                    fig.add_vline(x=datos.median(), line_color="green", annotation_text="Mediana")
+                    st.plotly_chart(fig, use_container_width=True)
                 
-                if st.button("🔬 Ejecutar t-test", type="primary"):
-                    stat, p = stats.ttest_1samp(df[col_ttest1].dropna(), popmean=media_hip)
+                # --- Desviación estándar, varianza y rango ---
+                elif test_desc == "Desviación estándar, varianza y rango":
+                    col_sel = st.selectbox("Columna numérica", cols_numericas, key="desc_dvr")
+                    datos = df[col_sel].dropna()
                     
-                    col_r1, col_r2 = st.columns(2)
-                    col_r1.metric("Estadístico t", f"{stat:.4f}")
-                    col_r2.metric("p-valor", f"{p:.4f}")
+                    c1, c2, c3, c4 = st.columns(4)
+                    c1.metric("Desviación Estándar", f"{datos.std():.4f}")
+                    c2.metric("Varianza", f"{datos.var():.4f}")
+                    c3.metric("Rango", f"{datos.max() - datos.min():.4f}")
+                    c4.metric("Rango Intercuartílico", f"{datos.quantile(0.75) - datos.quantile(0.25):.4f}")
                     
-                    alpha = st.slider("Nivel de significancia (α)", 0.01, 0.10, 0.05, 0.01, key="alpha_ttest1")
+                    st.write(f"**Mínimo:** {datos.min():.4f} | **Máximo:** {datos.max():.4f}")
                     
-                    if p > alpha:
-                        st.success(f"✅ No se rechaza H₀. La media no difiere significativamente de {media_hip}.")
+                    # Boxplot
+                    fig = px.box(datos, title=f"Boxplot de {col_sel}")
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                # --- Percentiles y cuartiles ---
+                elif test_desc == "Percentiles y cuartiles":
+                    col_sel = st.selectbox("Columna numérica", cols_numericas, key="desc_perc")
+                    datos = df[col_sel].dropna()
+                    
+                    percentiles = [1, 5, 10, 25, 50, 75, 90, 95, 99]
+                    valores = np.percentile(datos, percentiles)
+                    
+                    df_perc = pd.DataFrame({
+                        'Percentil': [f"{p}%" for p in percentiles],
+                        'Valor': valores.round(4)
+                    })
+                    st.dataframe(df_perc, hide_index=True, use_container_width=True)
+                    
+                    # Gráfico de percentiles
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=percentiles, y=valores, mode='lines+markers', name='Percentiles'))
+                    fig.update_layout(title=f"Curva de percentiles - {col_sel}", xaxis_title="Percentil (%)", yaxis_title="Valor")
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                # --- Proporciones y tasas ---
+                elif test_desc == "Proporciones y tasas":
+                    cols_cat = df.select_dtypes(include=['object', 'category']).columns.tolist()
+                    
+                    if cols_cat:
+                        col_sel = st.selectbox("Columna categórica", cols_cat, key="desc_prop")
+                        conteo = df[col_sel].value_counts()
+                        total = len(df)
+                        
+                        st.write(f"**Total de observaciones:** {total}")
+                        
+                        df_prop = pd.DataFrame({
+                            'Categoría': conteo.index,
+                            'Frecuencia': conteo.values,
+                            'Proporción': (conteo.values / total).round(4),
+                            'Porcentaje (%)': (conteo.values / total * 100).round(2)
+                        })
+                        st.dataframe(df_prop, hide_index=True, use_container_width=True)
+                        
+                        # Gráfico de barras
+                        fig = px.bar(df_prop, x='Categoría', y='Porcentaje (%)', title=f"Distribución de {col_sel}")
+                        st.plotly_chart(fig, use_container_width=True)
                     else:
-                        st.warning(f"⚠️ Se rechaza H₀. La media difiere significativamente de {media_hip}.")
+                        st.warning("No se encontraron columnas categóricas.")
+            else:
+                st.warning("No hay columnas numéricas en el dataset.")
+        
+        # ============================================================
+        # ⚖️ MEDIDAS DE ASOCIACIÓN Y EFECTO
+        # ============================================================
+        elif categoria == "⚖️ Medidas de Asociación y Efecto":
+            test_asoc = st.selectbox(
+                "Selecciona un análisis:",
+                [
+                    "Riesgo Relativo (RR)",
+                    "Odds Ratio (OR)",
+                    "Diferencia de Riesgos",
+                    "RAR y RRR",
+                    "NNT y NNH"
+                ]
+            )
             
-            # --- TEST T INDEPENDIENTE ---
-            elif test_seleccionado == "Test t para muestras independientes":
-                col_num = st.selectbox("Columna numérica", cols_numericas, key="ttestind_num")
+            st.markdown("""
+            ### 📋 Tabla 2x2 requerida
+            
+            Para estos análisis necesitas dos variables dicotómicas (sí/no, expuesto/no expuesto, enfermo/sano).
+            
+            |  | Enfermo | Sano |
+            |--|---------|------|
+            | **Expuesto** | a | b |
+            | **No expuesto** | c | d |
+            """)
+            
+            # Input manual de tabla 2x2
+            col_a, col_b = st.columns(2)
+            with col_a:
+                st.write("**Expuestos**")
+                a = st.number_input("Enfermos (a)", min_value=0, value=10, step=1)
+                b = st.number_input("Sanos (b)", min_value=0, value=90, step=1)
+            with col_b:
+                st.write("**No expuestos**")
+                c = st.number_input("Enfermos (c)", min_value=0, value=5, step=1)
+                d = st.number_input("Sanos (d)", min_value=0, value=95, step=1)
+            
+            # Cálculos automáticos
+            total_exp = a + b
+            total_noexp = c + d
+            total_enf = a + c
+            total_sano = b + d
+            
+            if total_exp > 0 and total_noexp > 0:
+                riesgo_exp = a / total_exp
+                riesgo_noexp = c / total_noexp
+                rr = riesgo_exp / riesgo_noexp if riesgo_noexp > 0 else float('inf')
+                odds_exp = a / b if b > 0 else float('inf')
+                odds_noexp = c / d if d > 0 else float('inf')
+                or_val = odds_exp / odds_noexp if odds_noexp > 0 else float('inf')
+                diff_riesgo = riesgo_exp - riesgo_noexp
+                rar = riesgo_noexp - riesgo_exp
+                rrr = (riesgo_noexp - riesgo_exp) / riesgo_noexp if riesgo_noexp > 0 else 0
+                nnt = 1 / rar if rar != 0 else float('inf')
+                
+                if test_asoc == "Riesgo Relativo (RR)":
+                    st.metric("Riesgo Relativo (RR)", f"{rr:.4f}")
+                    st.write(f"**Riesgo en expuestos:** {riesgo_exp:.4f} ({a}/{total_exp})")
+                    st.write(f"**Riesgo en no expuestos:** {riesgo_noexp:.4f} ({c}/{total_noexp})")
+                    if rr > 1:
+                        st.warning(f"RR > 1: La exposición aumenta el riesgo {(rr-1)*100:.1f}%")
+                    elif rr < 1:
+                        st.success(f"RR < 1: La exposición reduce el riesgo {(1-rr)*100:.1f}%")
+                    else:
+                        st.info("RR = 1: No hay asociación")
+                
+                elif test_asoc == "Odds Ratio (OR)":
+                    st.metric("Odds Ratio (OR)", f"{or_val:.4f}")
+                    st.write(f"**Odds en expuestos:** {odds_exp:.4f}")
+                    st.write(f"**Odds en no expuestos:** {odds_noexp:.4f}")
+                    if or_val > 1:
+                        st.warning(f"OR > 1: Mayor odds de enfermedad en expuestos")
+                    elif or_val < 1:
+                        st.success(f"OR < 1: Menor odds de enfermedad en expuestos")
+                    else:
+                        st.info("OR = 1: No hay asociación")
+                
+                elif test_asoc == "Diferencia de Riesgos":
+                    st.metric("Diferencia de Riesgos (Riesgo Absoluto)", f"{diff_riesgo:.4f}")
+                    st.write(f"Riesgo expuestos: {riesgo_exp:.4f}")
+                    st.write(f"Riesgo no expuestos: {riesgo_noexp:.4f}")
+                
+                elif test_asoc == "RAR y RRR":
+                    c1, c2 = st.columns(2)
+                    c1.metric("Reducción Absoluta del Riesgo (RAR)", f"{rar:.4f}")
+                    c2.metric("Reducción Relativa del Riesgo (RRR)", f"{rrr:.4f} ({rrr*100:.1f}%)")
+                
+                elif test_asoc == "NNT y NNH":
+                    st.metric("Número Necesario a Tratar (NNT)", f"{nnt:.1f}" if nnt != float('inf') else "∞")
+                    st.write(f"Se necesita tratar a **{nnt:.0f}** personas para prevenir un evento." if nnt != float('inf') else "No se puede calcular (RAR = 0)")
+        
+        # ============================================================
+        # 🧪 INFERENCIA
+        # ============================================================
+        elif categoria == "🧪 Inferencia":
+            test_inf = st.selectbox(
+                "Selecciona un análisis:",
+                ["Valor p e Intervalos de Confianza", "Error Estándar"]
+            )
+            
+            if cols_numericas:
+                col_sel = st.selectbox("Columna numérica", cols_numericas, key="inf_col")
+                datos = df[col_sel].dropna()
+                
+                if test_inf == "Valor p e Intervalos de Confianza":
+                    confianza = st.slider("Nivel de confianza (%)", 80, 99, 95)
+                    
+                    # IC para la media
+                    media = datos.mean()
+                    error_std = datos.std() / np.sqrt(len(datos))
+                    z = stats.norm.ppf((1 + confianza/100) / 2)
+                    ic_inf = media - z * error_std
+                    ic_sup = media + z * error_std
+                    
+                    st.write(f"**Media muestral:** {media:.4f}")
+                    st.write(f"**Error estándar:** {error_std:.4f}")
+                    st.metric(f"IC {confianza}%", f"[{ic_inf:.4f}, {ic_sup:.4f}]")
+                    
+                    # Visualización
+                    x = np.linspace(media - 4*error_std, media + 4*error_std, 500)
+                    y = stats.norm.pdf(x, media, error_std)
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=x, y=y, fill='tozeroy', name='Distribución de la media'))
+                    fig.add_vline(x=ic_inf, line_dash="dash", line_color="red", annotation_text=f"IC inf")
+                    fig.add_vline(x=ic_sup, line_dash="dash", line_color="red", annotation_text=f"IC sup")
+                    fig.add_vline(x=media, line_color="blue", annotation_text="Media")
+                    fig.update_layout(title=f"Intervalo de Confianza {confianza}% para la media de {col_sel}")
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                elif test_inf == "Error Estándar":
+                    error_std = datos.std() / np.sqrt(len(datos))
+                    st.metric("Error Estándar de la Media", f"{error_std:.4f}")
+                    st.write(f"**Desviación estándar:** {datos.std():.4f}")
+                    st.write(f"**Tamaño muestral (n):** {len(datos)}")
+                    st.write(f"**Fórmula:** SE = σ / √n = {datos.std():.4f} / √{len(datos)} = {error_std:.4f}")
+            else:
+                st.warning("No hay columnas numéricas.")
+        
+        # ============================================================
+        # 🧬 PRUEBAS ESTADÍSTICAS
+        # ============================================================
+        elif categoria == "🧬 Pruebas Estadísticas":
+            test_prueba = st.selectbox(
+                "Selecciona un test:",
+                ["t de Student", "ANOVA", "Chi-cuadrado", "Test exacto de Fisher",
+                 "Mann-Whitney U", "Wilcoxon", "Kruskal-Wallis"]
+            )
+            
+            # --- t de Student ---
+            if test_prueba == "t de Student":
+                tipo_t = st.radio("Tipo de t-test:", ["Una muestra", "Independiente (2 grupos)"], horizontal=True)
+                
+                if tipo_t == "Una muestra":
+                    col_sel = st.selectbox("Columna", cols_numericas, key="t_una")
+                    media_hip = st.number_input("Media hipotética (H₀)", value=0.0)
+                    
+                    if st.button("Ejecutar t-test", type="primary", key="btn_t1"):
+                        stat, p = stats.ttest_1samp(df[col_sel].dropna(), media_hip)
+                        c1, c2 = st.columns(2)
+                        c1.metric("Estadístico t", f"{stat:.4f}")
+                        c2.metric("p-valor", f"{p:.4f}")
+                        alpha = st.slider("α", 0.01, 0.10, 0.05, key="alpha_t1")
+                        if p > alpha:
+                            st.success(f"No se rechaza H₀ (p={p:.4f} > α={alpha})")
+                        else:
+                            st.warning(f"Se rechaza H₀ (p={p:.4f} ≤ α={alpha})")
+                
+                elif tipo_t == "Independiente (2 grupos)":
+                    col_num = st.selectbox("Columna numérica", cols_numericas, key="t_ind_num")
+                    cols_cat = df.select_dtypes(include=['object', 'category']).columns.tolist()
+                    
+                    if cols_cat:
+                        col_cat = st.selectbox("Columna categórica", cols_cat, key="t_ind_cat")
+                        grupos = df[col_cat].dropna().unique()
+                        
+                        if len(grupos) == 2:
+                            g1 = df[df[col_cat] == grupos[0]][col_num].dropna()
+                            g2 = df[df[col_cat] == grupos[1]][col_num].dropna()
+                            
+                            if st.button("Ejecutar t-test independiente", type="primary", key="btn_t2"):
+                                stat, p = stats.ttest_ind(g1, g2)
+                                c1, c2, c3 = st.columns(3)
+                                c1.metric("t", f"{stat:.4f}")
+                                c2.metric("p-valor", f"{p:.4f}")
+                                c3.metric(f"Medias", f"{g1.mean():.2f} vs {g2.mean():.2f}")
+                                if p <= 0.05:
+                                    st.warning("Diferencia significativa (p ≤ 0.05)")
+                                else:
+                                    st.success("No hay diferencia significativa (p > 0.05)")
+                                
+                                fig = px.box(df[df[col_cat].isin(grupos)], x=col_cat, y=col_num, title=f"{col_num} por {col_cat}")
+                                st.plotly_chart(fig, use_container_width=True)
+                        else:
+                            st.error(f"La columna '{col_cat}' debe tener 2 grupos. Tiene {len(grupos)}.")
+            
+            # --- ANOVA ---
+            elif test_prueba == "ANOVA":
+                col_num = st.selectbox("Columna numérica", cols_numericas, key="anova_num")
                 cols_cat = df.select_dtypes(include=['object', 'category']).columns.tolist()
                 
                 if cols_cat:
-                    col_cat = st.selectbox("Columna categórica (2 grupos)", cols_cat, key="ttestind_cat")
+                    col_cat = st.selectbox("Columna categórica (grupos)", cols_cat, key="anova_cat")
+                    grupos = df[col_cat].dropna().unique()
+                    
+                    if len(grupos) >= 2:
+                        st.write(f"**Grupos detectados ({len(grupos)}):** {', '.join(grupos)}")
+                        
+                        if st.button("Ejecutar ANOVA (one-way)", type="primary", key="btn_anova"):
+                            muestras = [df[df[col_cat] == g][col_num].dropna().values for g in grupos]
+                            f_stat, p = stats.f_oneway(*muestras)
+                            
+                            c1, c2 = st.columns(2)
+                            c1.metric("F", f"{f_stat:.4f}")
+                            c2.metric("p-valor", f"{p:.4f}")
+                            
+                            if p <= 0.05:
+                                st.warning(f"Diferencias significativas entre grupos (p={p:.4f})")
+                            else:
+                                st.success(f"No hay diferencias significativas (p={p:.4f})")
+                            
+                            fig = px.box(df, x=col_cat, y=col_num, title=f"ANOVA: {col_num} por {col_cat}")
+                            st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.error(f"Se necesitan al menos 2 grupos. '{col_cat}' tiene {len(grupos)}.")
+            
+            # --- Chi-cuadrado ---
+            elif test_prueba == "Chi-cuadrado":
+                cols_cat = df.select_dtypes(include=['object', 'category']).columns.tolist()
+                
+                if len(cols_cat) >= 2:
+                    col1 = st.selectbox("Variable 1", cols_cat, key="chi_col1")
+                    col2 = st.selectbox("Variable 2", cols_cat, key="chi_col2")
+                    
+                    if st.button("Ejecutar Chi-cuadrado", type="primary", key="btn_chi"):
+                        tabla = pd.crosstab(df[col1], df[col2])
+                        st.write("**Tabla de contingencia:**")
+                        st.dataframe(tabla, use_container_width=True)
+                        
+                        chi2, p, dof, expected = stats.chi2_contingency(tabla)
+                        c1, c2, c3 = st.columns(3)
+                        c1.metric("χ²", f"{chi2:.4f}")
+                        c2.metric("p-valor", f"{p:.4f}")
+                        c3.metric("Grados de libertad", dof)
+                        
+                        if p <= 0.05:
+                            st.warning("Asociación significativa (p ≤ 0.05)")
+                        else:
+                            st.success("No hay asociación significativa (p > 0.05)")
+                else:
+                    st.warning("Se necesitan al menos 2 columnas categóricas.")
+            
+            # --- Test exacto de Fisher ---
+            elif test_prueba == "Test exacto de Fisher":
+                cols_cat = df.select_dtypes(include=['object', 'category']).columns.tolist()
+                
+                if len(cols_cat) >= 2:
+                    col1 = st.selectbox("Variable 1", cols_cat, key="fish_col1")
+                    col2 = st.selectbox("Variable 2", cols_cat, key="fish_col2")
+                    
+                    if st.button("Ejecutar Fisher", type="primary", key="btn_fish"):
+                        tabla = pd.crosstab(df[col1], df[col2])
+                        st.dataframe(tabla, use_container_width=True)
+                        
+                        if tabla.shape == (2, 2):
+                            odds_ratio, p = stats.fisher_exact(tabla)
+                            c1, c2 = st.columns(2)
+                            c1.metric("Odds Ratio", f"{odds_ratio:.4f}")
+                            c2.metric("p-valor", f"{p:.4f}")
+                        else:
+                            st.error("Fisher requiere tabla 2x2. Usa Chi-cuadrado para tablas más grandes.")
+                else:
+                    st.warning("Se necesitan al menos 2 columnas categóricas.")
+            
+            # --- Mann-Whitney U ---
+            elif test_prueba == "Mann-Whitney U":
+                col_num = st.selectbox("Columna numérica", cols_numericas, key="mw_num")
+                cols_cat = df.select_dtypes(include=['object', 'category']).columns.tolist()
+                
+                if cols_cat:
+                    col_cat = st.selectbox("Columna categórica (2 grupos)", cols_cat, key="mw_cat")
                     grupos = df[col_cat].dropna().unique()
                     
                     if len(grupos) == 2:
-                        grupo1 = df[df[col_cat] == grupos[0]][col_num].dropna()
-                        grupo2 = df[df[col_cat] == grupos[1]][col_num].dropna()
+                        g1 = df[df[col_cat] == grupos[0]][col_num].dropna()
+                        g2 = df[df[col_cat] == grupos[1]][col_num].dropna()
                         
-                        if st.button("🔬 Ejecutar t-test independiente", type="primary"):
-                            stat, p = stats.ttest_ind(grupo1, grupo2)
-                            
-                            col_r1, col_r2, col_r3 = st.columns(3)
-                            col_r1.metric("Estadístico t", f"{stat:.4f}")
-                            col_r2.metric("p-valor", f"{p:.4f}")
-                            col_r3.metric(f"Media {grupos[0]} vs {grupos[1]}", f"{grupo1.mean():.2f} vs {grupo2.mean():.2f}")
-                            
-                            alpha = st.slider("Nivel α", 0.01, 0.10, 0.05, 0.01, key="alpha_ttestind")
-                            
-                            if p > alpha:
-                                st.success("✅ No se rechaza H₀. No hay diferencia significativa entre grupos.")
+                        if st.button("Ejecutar Mann-Whitney", type="primary", key="btn_mw"):
+                            stat, p = stats.mannwhitneyu(g1, g2, alternative='two-sided')
+                            st.write(f"**U = {stat:.4f}, p = {p:.4f}**")
+                            if p <= 0.05:
+                                st.warning("Diferencia significativa entre grupos")
                             else:
-                                st.warning("⚠️ Se rechaza H₀. Hay diferencia significativa entre grupos.")
+                                st.success("No hay diferencia significativa")
                     else:
-                        st.error(f"❌ La columna '{col_cat}' debe tener exactamente 2 grupos. Tiene {len(grupos)}.")
-                else:
-                    st.warning("⚠️ No se encontraron columnas categóricas para agrupar.")
+                        st.error(f"Se necesitan 2 grupos. '{col_cat}' tiene {len(grupos)}.")
             
-            # --- CORRELACIÓN DE PEARSON ---
-            elif test_seleccionado == "Correlación de Pearson":
+            # --- Wilcoxon ---
+            elif test_prueba == "Wilcoxon":
                 if len(cols_numericas) >= 2:
-                    col_x = st.selectbox("Variable X", cols_numericas, key="pearson_x")
-                    col_y = st.selectbox("Variable Y", cols_numericas, key="pearson_y")
+                    col1 = st.selectbox("Variable 1 (antes)", cols_numericas, key="wilx_1")
+                    col2 = st.selectbox("Variable 2 (después)", cols_numericas, key="wilx_2")
                     
-                    if st.button("🔬 Calcular correlación", type="primary"):
-                        datos_x = df[col_x].dropna()
-                        datos_y = df[col_y].dropna()
-                        
-                        # Usar solo filas donde ambas columnas tienen datos
-                        mask = df[[col_x, col_y]].dropna().index
-                        r, p = stats.pearsonr(df.loc[mask, col_x], df.loc[mask, col_y])
-                        
-                        col_r1, col_r2 = st.columns(2)
-                        col_r1.metric("Coef. Pearson (r)", f"{r:.4f}")
-                        col_r2.metric("p-valor", f"{p:.4f}")
-                        
-                        # Interpretación
-                        if abs(r) < 0.3:
-                            fuerza = "débil"
-                        elif abs(r) < 0.7:
-                            fuerza = "moderada"
-                        else:
-                            fuerza = "fuerte"
-                        direccion = "positiva" if r > 0 else "negativa"
-                        
-                        st.info(f"📌 Correlación **{fuerza}** y **{direccion}** (r={r:.3f}, p={p:.4f})")
-                        
-                        # Scatter plot
-                        fig = px.scatter(
-                            x=df.loc[mask, col_x], y=df.loc[mask, col_y],
-                            trendline='ols',
-                            title=f"{col_x} vs {col_y}",
-                            labels={'x': col_x, 'y': col_y}
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
+                    if st.button("Ejecutar Wilcoxon", type="primary", key="btn_wilx"):
+                        mask = df[[col1, col2]].dropna().index
+                        stat, p = stats.wilcoxon(df.loc[mask, col1], df.loc[mask, col2])
+                        c1, c2 = st.columns(2)
+                        c1.metric("W", f"{stat:.4f}")
+                        c2.metric("p-valor", f"{p:.4f}")
                 else:
-                    st.warning("⚠️ Se necesitan al menos 2 columnas numéricas.")
+                    st.warning("Se necesitan 2 columnas numéricas (medidas pareadas).")
             
-            # --- CORRELACIÓN DE SPEARMAN ---
-            elif test_seleccionado == "Correlación de Spearman":
-                if len(cols_numericas) >= 2:
-                    col_x = st.selectbox("Variable X", cols_numericas, key="spearman_x")
-                    col_y = st.selectbox("Variable Y", cols_numericas, key="spearman_y")
+            # --- Kruskal-Wallis ---
+            elif test_prueba == "Kruskal-Wallis":
+                col_num = st.selectbox("Columna numérica", cols_numericas, key="kw_num")
+                cols_cat = df.select_dtypes(include=['object', 'category']).columns.tolist()
+                
+                if cols_cat:
+                    col_cat = st.selectbox("Columna categórica", cols_cat, key="kw_cat")
+                    grupos = df[col_cat].dropna().unique()
                     
-                    if st.button("🔬 Calcular correlación", type="primary"):
-                        mask = df[[col_x, col_y]].dropna().index
-                        rho, p = stats.spearmanr(df.loc[mask, col_x], df.loc[mask, col_y])
-                        
-                        col_r1, col_r2 = st.columns(2)
-                        col_r1.metric("Coef. Spearman (ρ)", f"{rho:.4f}")
-                        col_r2.metric("p-valor", f"{p:.4f}")
-                        
-                        st.info(f"📌 Correlación de Spearman: ρ={rho:.3f}, p={p:.4f}")
-                        
-                        fig = px.scatter(
-                            x=df.loc[mask, col_x], y=df.loc[mask, col_y],
-                            title=f"{col_x} vs {col_y} (Spearman)",
-                            labels={'x': col_x, 'y': col_y}
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.warning("⚠️ Se necesitan al menos 2 columnas numéricas.")
+                    if len(grupos) >= 2:
+                        if st.button("Ejecutar Kruskal-Wallis", type="primary", key="btn_kw"):
+                            muestras = [df[df[col_cat] == g][col_num].dropna().values for g in grupos]
+                            h, p = stats.kruskal(*muestras)
+                            st.write(f"**H = {h:.4f}, p = {p:.4f}**")
         
-        else:
-            st.warning("⚠️ No hay columnas numéricas para realizar tests.")
+        # ============================================================
+        # 📈 MODELOS
+        # ============================================================
+        elif categoria == "📈 Modelos":
+            test_modelo = st.selectbox(
+                "Selecciona un modelo:",
+                ["Regresión lineal", "Regresión logística"]
+            )
+            
+            if test_modelo == "Regresión lineal":
+                if len(cols_numericas) >= 2:
+                    col_y = st.selectbox("Variable dependiente (Y)", cols_numericas, key="reg_y")
+                    col_x = st.selectbox("Variable independiente (X)", cols_numericas, key="reg_x")
+                    
+                    if st.button("Ejecutar regresión", type="primary", key="btn_reg"):
+                        mask = df[[col_x, col_y]].dropna().index
+                        x = df.loc[mask, col_x]
+                        y = df.loc[mask, col_y]
+                        
+                        slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+                        
+                        c1, c2, c3 = st.columns(3)
+                        c1.metric("R²", f"{r_value**2:.4f}")
+                        c2.metric("Pendiente", f"{slope:.4f}")
+                        c3.metric("p-valor", f"{p_value:.4f}")
+                        
+                        st.write(f"**Ecuación:** Y = {intercept:.4f} + {slope:.4f} · X")
+                        
+                        fig = px.scatter(x=x, y=y, trendline='ols', title=f"Regresión: {col_y} ~ {col_x}")
+                        st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.warning("Se necesitan al menos 2 columnas numéricas.")
+            
+            elif test_modelo == "Regresión logística":
+                st.info("La regresión logística requiere `statsmodels`. Ya está instalada en tu entorno.")
+                
+                col_y_bin = st.selectbox("Variable dependiente (0/1)", cols_numericas, key="log_y")
+                col_x = st.selectbox("Variable independiente", cols_numericas, key="log_x")
+                
+                if st.button("Ejecutar regresión logística", type="primary", key="btn_log"):
+                    import statsmodels.api as sm
+                    mask = df[[col_x, col_y_bin]].dropna().index
+                    X = sm.add_constant(df.loc[mask, col_x])
+                    y = df.loc[mask, col_y_bin]
+                    
+                    try:
+                        modelo = sm.Logit(y, X).fit(disp=False)
+                        st.text(modelo.summary())
+                    except Exception as e:
+                        st.error(f"Error: {e}. Asegúrate de que Y sea binaria (0/1).")
+        
+        # ============================================================
+        # ⏳ SUPERVIVENCIA
+        # ============================================================
+        elif categoria == "⏳ Supervivencia":
+            st.info("""
+            ### Análisis de Supervivencia
+            
+            Para Kaplan-Meier, Hazard Ratio y Log-rank test se necesita:
+            - **Columna de tiempo:** días/semanas/meses hasta el evento
+            - **Columna de evento:** 1 si ocurrió el evento, 0 si censurado
+            - **Columna de grupo:** (opcional) para comparar curvas
+            
+            Se requiere la librería `lifelines`.
+            """)
+            
+            st.code("pip install lifelines", language="bash")
+            
+            # Placeholder para cuando instalen lifelines
+            col_tiempo = st.selectbox("Columna de tiempo", cols_numericas, key="surv_t")
+            col_evento = st.selectbox("Columna de evento (0/1)", cols_numericas, key="surv_e")
+            
+            cols_cat = df.select_dtypes(include=['object', 'category']).columns.tolist()
+            col_grupo = st.selectbox("Columna de grupo (opcional)", ["Ninguno"] + cols_cat, key="surv_g")
+            
+            if st.button("Ejecutar Kaplan-Meier", type="primary", key="btn_km"):
+                try:
+                    from lifelines import KaplanMeierFitter
+                    
+                    kmf = KaplanMeierFitter()
+                    kmf.fit(df[col_tiempo], event_observed=df[col_evento])
+                    
+                    fig = kmf.plot_survival_function()
+                    st.pyplot(fig.figure)
+                except ImportError:
+                    st.error("Instala lifelines: `pip install lifelines`")
+        
+        # ============================================================
+        # 🧫 PRUEBAS DIAGNÓSTICAS
+        # ============================================================
+        elif categoria == "🧫 Pruebas Diagnósticas":
+            st.markdown("""
+            ### Matriz de Confusión
+            
+            |  | Prueba + | Prueba - |
+            |--|----------|----------|
+            | **Enfermo** | VP | FN |
+            | **Sano** | FP | VN |
+            """)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                vp = st.number_input("Verdaderos Positivos (VP)", min_value=0, value=80)
+                fn = st.number_input("Falsos Negativos (FN)", min_value=0, value=20)
+            with col2:
+                fp = st.number_input("Falsos Positivos (FP)", min_value=0, value=10)
+                vn = st.number_input("Verdaderos Negativos (VN)", min_value=0, value=90)
+            
+            total_enf = vp + fn
+            total_sano = fp + vn
+            
+            if total_enf > 0 and total_sano > 0:
+                sens = vp / total_enf
+                espec = vn / total_sano
+                vpp = vp / (vp + fp) if (vp + fp) > 0 else 0
+                vpn = vn / (vn + fn) if (vn + fn) > 0 else 0
+                lr_pos = sens / (1 - espec) if (1 - espec) > 0 else float('inf')
+                lr_neg = (1 - sens) / espec if espec > 0 else float('inf')
+                
+                st.subheader("Resultados")
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Sensibilidad", f"{sens:.4f} ({sens*100:.1f}%)")
+                c2.metric("Especificidad", f"{espec:.4f} ({espec*100:.1f}%)")
+                c3.metric("Precisión", f"{(vp+vn)/(vp+vn+fp+fn):.4f}")
+                
+                c4, c5, c6 = st.columns(3)
+                c4.metric("VPP", f"{vpp:.4f}")
+                c5.metric("VPN", f"{vpn:.4f}")
+                c6.metric("Tasa de error", f"{(fp+fn)/(vp+vn+fp+fn):.4f}")
+                
+                c7, c8 = st.columns(2)
+                c7.metric("LR+", f"{lr_pos:.2f}")
+                c8.metric("LR−", f"{lr_neg:.2f}")
+                
+                # Interpretación de LR
+                st.write("**Interpretación de Razones de Verosimilitud:**")
+                if lr_pos > 10:
+                    st.success(f"LR+ = {lr_pos:.1f}: Aumento grande en la probabilidad post-prueba")
+                elif lr_pos > 5:
+                    st.info(f"LR+ = {lr_pos:.1f}: Aumento moderado")
+                elif lr_pos > 2:
+                    st.warning(f"LR+ = {lr_pos:.1f}: Aumento pequeño")
+                else:
+                    st.warning(f"LR+ = {lr_pos:.1f}: Cambio mínimo")
     
     # -------------------------------------------------------------------
     # EXPORTACIÓN DE RESULTADOS
