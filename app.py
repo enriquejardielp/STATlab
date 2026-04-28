@@ -97,17 +97,28 @@ if archivo is not None:
     ])
     
     # ---------------------------------------------------- TAB 1: VISTA PREVIA
-    with tab1:
-        st.subheader("🔍 Primeras y últimas filas")
-        col_a, col_b = st.columns(2)
-        with col_a:
-            st.write("**Primeras 5 filas:**")
-            st.dataframe(df.head(), use_container_width=True)
-        with col_b:
-            st.write("**Últimas 5 filas:**")
-            st.dataframe(df.tail(), use_container_width=True)
+   with tab1:
+        st.subheader("🔍 Vista previa de los datos")
+        st.dataframe(df, use_container_width=True, height=400)
         
         st.subheader("ℹ️ Información de columnas")
+        
+        # Traducir tipos de datos a lenguaje normal
+        traduccion_tipos = {
+            'int64': 'Número entero',
+            'int32': 'Número entero',
+            'float64': 'Número decimal',
+            'float32': 'Número decimal',
+            'object': 'Texto / Categoría',
+            'bool': 'Verdadero/Falso',
+            'datetime64': 'Fecha',
+            'category': 'Categoría'
+        }
+        
+        tipos['Tipo'] = tipos['Tipo'].apply(
+            lambda x: traduccion_tipos.get(str(x), str(x))
+        )
+        
         st.dataframe(tipos, use_container_width=True, hide_index=True)
     
     # ---------------------------------------------------- TAB 2: DESCRIPTIVOS
