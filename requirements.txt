@@ -5,3 +5,5 @@ scipy==1.11.4
 statsmodels==0.14.1
 plotly==5.18.0
 numpy==1.26.2
+google-generativeai
+ollama
