@@ -1,9 +1,11 @@
-streamlit==1.31.0
+customtkinter==5.2.2
 pandas==2.1.4
 openpyxl==3.1.2
 scipy==1.11.4
 statsmodels==0.14.1
 plotly==5.18.0
 numpy==1.26.2
-google-generativeai
+duckdb==1.0.0
+lifelines==0.29.0
 ollama
+Pillow>=10.0.0
