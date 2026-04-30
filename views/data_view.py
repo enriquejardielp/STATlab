@@ -141,4 +141,67 @@ class DataView:
         ]
         
         for text, width_pct in headers:
-            ctk
+            ctk.CTkLabel(
+                cols_frame,
+                text=text,
+                font=ctk.CTkFont(family="Inter", size=10, weight="bold"),
+                text_color="#6B7280",
+                width=int(width_pct * 5),
+            ).pack(side="left", padx=8, pady=8)
+        
+        # Scroll de variables
+        var_scroll = ctk.CTkScrollableFrame(
+            container,
+            fg_color="transparent",
+            scrollbar_button_color="#E5E7EB",
+        )
+        var_scroll.pack(fill="both", expand=True, padx=4, pady=(0, 8))
+        
+        # Traducción de tipos para mostrar
+        tipo_labels = {
+            "numérica_continua": "Numérica continua",
+            "numérica_discreta": "Numérica discreta",
+            "categórica_nominal": "Categórica nominal",
+            "categórica_ordinal": "Categórica ordinal",
+            "categórica_dicotómica": "Categórica dicotómica",
+            "texto_libre": "Texto libre",
+        }
+        
+        rol_labels = {
+            "dependiente": "Dependiente",
+            "independiente": "Independiente",
+            "ambos": "Ambos",
+            "id": "ID",
+            "fecha": "Fecha",
+            "texto_libre": "Texto libre",
+        }
+        
+        for var_name, info in self.app.variables.items():
+            row = ctk.CTkFrame(var_scroll, fg_color="transparent", height=34)
+            row.pack(fill="x", pady=1)
+            row.pack_propagate(False)
+            
+            tipo_display = tipo_labels.get(info.get("tipo", ""), info.get("tipo", "?"))
+            rol_display = rol_labels.get(info.get("sugerencia_rol", ""), info.get("sugerencia_rol", "?"))
+            n_unique = info.get("valores_unicos", "?")
+            faltantes = "Sí" if info.get("tiene_valores_faltantes") else "No"
+            desc = info.get("descripcion", "")[:30]
+            
+            valores = [
+                (var_name[:25], 25),
+                (tipo_display, 18),
+                (rol_display, 18),
+                (str(n_unique), 13),
+                (faltantes, 10),
+                (desc, 16),
+            ]
+            
+            for text, width_pct in valores:
+                ctk.CTkLabel(
+                    row,
+                    text=text,
+                    font=ctk.CTkFont(family="Inter", size=11),
+                    text_color="#1A1A1A" if width_pct > 15 else "#6B7280",
+                    width=int(width_pct * 5),
+                    anchor="w",
+                ).pack(side="left", padx=8, pady=6)
