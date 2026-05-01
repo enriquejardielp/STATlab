@@ -5,10 +5,10 @@ STATlab - Gestión de base de datos interna con DuckDB.
 import duckdb
 import pandas as pd
 from pathlib import Path
-from tkinter import filedialog
 import json
 import os
-import tkinter.messagebox as messagebox
+
+from PyQt6.QtWidgets import QFileDialog, QMessageBox
 
 DB_PATH = Path(__file__).parent / "statlab.db"
 
@@ -18,47 +18,33 @@ def get_connection():
     return duckdb.connect(str(DB_PATH))
 
 
-def init_db():
-    """Inicializa la base de datos."""
-    # DuckDB no requiere inicialización explícita
-    pass
-
-
 def import_dataset(app):
     """
     Importa un dataset desde Excel/CSV a la base de datos interna.
-    Clasifica variables usando Ollama.
     """
-    filetypes = [
-        ("Archivos de datos", "*.xlsx *.csv"),
-        ("Excel", "*.xlsx"),
-        ("CSV", "*.csv"),
-    ]
-    
-    filename = filedialog.askopenfilename(
-        title="Importar dataset",
-        filetypes=filetypes,
+    filename, _ = QFileDialog.getOpenFileName(
+        app,
+        "Importar dataset",
+        "",
+        "Archivos de datos (*.xlsx *.csv);;Excel (*.xlsx);;CSV (*.csv)"
     )
     
     if not filename:
         return
     
     try:
-        # Cargar datos
         if filename.endswith('.csv'):
             df = pd.read_csv(filename)
         else:
             df = pd.read_excel(filename)
         
-        # Nombre de la tabla
         table_name = Path(filename).stem.replace(" ", "_").replace("-", "_")
         
-        # Guardar en DuckDB
         con = get_connection()
         con.execute(f"DROP TABLE IF EXISTS {table_name}")
         con.execute(f"CREATE TABLE {table_name} AS SELECT * FROM df")
         
-        # Clasificar variables con Ollama
+        # Clasificar variables
         from classifier import classify_variables
         variables_info = classify_variables(df)
         
@@ -75,23 +61,27 @@ def import_dataset(app):
         with open(metadata_path, "w", encoding="utf-8") as f:
             json.dump(metadata, f, ensure_ascii=False, indent=2)
         
-        # Actualizar estado de la app
+        # Actualizar app
         app.dataset_loaded = True
         app.dataset_name = Path(filename).name
         app.table_name = table_name
         app.variables = variables_info
         
-        # Recargar vista de datos
+        # Refrescar vistas
+        app.data_view.refresh()
+        app.analysis_view.refresh()
+        app.graphs_view.refresh()
         app._navigate("data")
         
-        messagebox.showinfo(
+        QMessageBox.information(
+            app,
             "Importación exitosa",
             f"Dataset '{Path(filename).name}' importado.\n"
             f"{len(df)} filas, {len(df.columns)} columnas."
         )
         
     except Exception as e:
-        messagebox.showerror("Error", f"No se pudo importar:\n{str(e)}")
+        QMessageBox.critical(app, "Error", f"No se pudo importar:\n{str(e)}")
 
 
 def get_dataframe(table_name, limit=None):
@@ -103,12 +93,6 @@ def get_dataframe(table_name, limit=None):
 
 
 def get_variable_data(table_name, variable):
-    """Obtiene datos de una variable específica."""
+    """Obtiene datos de una variable."""
     con = get_connection()
-    return con.execute(f"SELECT \"{variable}\" FROM {table_name}").df()[variable].dropna()
-
-
-def execute_query(query):
-    """Ejecuta consulta SQL arbitraria."""
-    con = get_connection()
-    return con.execute(query).df()
+    return con.execute(f'SELECT "{variable}" FROM {table_name}').df()[variable].dropna()
