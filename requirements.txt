@@ -5,7 +5,7 @@ scipy==1.11.4
 statsmodels==0.14.1
 plotly==5.18.0
 numpy==1.26.2
-duckdb==1.0.0
+duckdb==0.10.3
 lifelines==0.29.0
 ollama
 Pillow>=10.0.0
