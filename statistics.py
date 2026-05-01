@@ -5,7 +5,6 @@ STATlab - Motor estadístico completo.
 import pandas as pd
 import numpy as np
 from scipy import stats
-from database import get_variable_data, get_dataframe
 import json
 
 
@@ -17,7 +16,7 @@ def descriptivos(df, variable):
     
     return {
         "n": len(datos),
-        "nulos": df[variable].isna().sum(),
+        "nulos": int(df[variable].isna().sum()),
         "media": round(float(datos.mean()), 4),
         "mediana": round(float(datos.median()), 4),
         "moda": datos.mode().tolist() if not datos.mode().empty else None,
@@ -43,15 +42,19 @@ def frecuencia_categorica(df, variable):
     conteo = datos.value_counts()
     total = len(datos)
     
-    return [
-        {
+    result = []
+    acum = 0
+    for cat in conteo.index:
+        n = int(conteo[cat])
+        pct = round(n / total * 100, 2)
+        acum += n
+        result.append({
             "categoria": str(cat),
-            "frecuencia": int(conteo[cat]),
-            "porcentaje": round(float(conteo[cat] / total * 100), 2),
-            "porcentaje_acumulado": round(float(conteo[:i+1].sum() / total * 100), 2),
-        }
-        for i, cat in enumerate(conteo.index)
-    ]
+            "frecuencia": n,
+            "porcentaje": pct,
+            "porcentaje_acumulado": round(acum / total * 100, 2),
+        })
+    return result
 
 
 def normalidad(df, variable):
@@ -70,7 +73,7 @@ def normalidad(df, variable):
         "estadistico": round(float(stat), 4),
         "p_valor": round(float(p), 4),
         "es_normal": p > 0.05,
-        "interpretacion": "Los datos siguen una distribución normal" if p > 0.05 else "Los datos NO siguen una distribución normal"
+        "interpretacion": "Distribución normal" if p > 0.05 else "No sigue distribución normal"
     }
 
 
@@ -87,9 +90,11 @@ def comparar_dos_grupos(df, var_num, var_cat, test="ttest"):
     if test == "ttest":
         stat, p = stats.ttest_ind(g1, g2)
         test_name = "t-test independiente"
+        est_name = "t"
     elif test == "mannwhitney":
         stat, p = stats.mannwhitneyu(g1, g2, alternative='two-sided')
         test_name = "Mann-Whitney U"
+        est_name = "U"
     
     return {
         "test": test_name,
@@ -101,41 +106,38 @@ def comparar_dos_grupos(df, var_num, var_cat, test="ttest"):
         "media_2": round(float(g2.mean()), 4),
         "mediana_1": round(float(g1.median()), 4),
         "mediana_2": round(float(g2.median()), 4),
-        "estadistico": round(float(stat), 4),
+        est_name: round(float(stat), 4),
         "p_valor": round(float(p), 4),
         "significativo": p <= 0.05,
-        "diferencia_medias": round(float(g1.mean() - g2.mean()), 4),
     }
 
 
 def anova(df, var_num, var_cat):
-    """ANOVA de una variable numérica por grupos."""
+    """ANOVA one-way."""
     grupos = df[var_cat].dropna().unique()
     muestras = [df[df[var_cat] == g][var_num].dropna().values for g in grupos]
-    
     f_stat, p = stats.f_oneway(*muestras)
     
     return {
         "test": "ANOVA one-way",
         "grupos": [str(g) for g in grupos],
         "n_por_grupo": [len(m) for m in muestras],
-        "medias_por_grupo": {str(g): round(float(m.mean()), 4) for g, m in zip(grupos, muestras)},
-        "estadistico_F": round(float(f_stat), 4),
+        "medias": {str(g): round(float(m.mean()), 4) for g, m in zip(grupos, muestras)},
+        "F": round(float(f_stat), 4),
         "p_valor": round(float(p), 4),
         "significativo": p <= 0.05,
     }
 
 
 def correlacion(df, var1, var2, metodo="pearson"):
-    """Correlación entre dos variables numéricas."""
+    """Correlación entre dos variables."""
     mask = df[[var1, var2]].dropna().index
-    x = df.loc[mask, var1]
-    y = df.loc[mask, var2]
+    x, y = df.loc[mask, var1], df.loc[mask, var2]
     
     if metodo == "pearson":
         r, p = stats.pearsonr(x, y)
         test = "Pearson"
-    elif metodo == "spearman":
+    else:
         r, p = stats.spearmanr(x, y)
         test = "Spearman"
     
@@ -162,8 +164,7 @@ def correlacion(df, var1, var2, metodo="pearson"):
 def regresion_lineal(df, var_y, var_x):
     """Regresión lineal simple."""
     mask = df[[var_x, var_y]].dropna().index
-    x = df.loc[mask, var_x]
-    y = df.loc[mask, var_y]
+    x, y = df.loc[mask, var_x], df.loc[mask, var_y]
     
     slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
     
@@ -174,40 +175,20 @@ def regresion_lineal(df, var_y, var_x):
         "r_cuadrado": round(float(r_value**2), 4),
         "r": round(float(r_value), 4),
         "p_valor": round(float(p_value), 4),
-        "error_estandar": round(float(std_err), 4),
         "significativo": p_value <= 0.05,
         "n": len(mask),
     }
 
 
 def chi_cuadrado(df, var1, var2):
-    """Test de chi-cuadrado de independencia."""
+    """Test de chi-cuadrado."""
     tabla = pd.crosstab(df[var1], df[var2])
     chi2, p, dof, expected = stats.chi2_contingency(tabla)
     
     return {
-        "test": "Chi-cuadrado de independencia",
+        "test": "Chi-cuadrado",
         "chi2": round(float(chi2), 4),
         "p_valor": round(float(p), 4),
-        "grados_libertad": int(dof),
+        "gl": int(dof),
         "significativo": p <= 0.05,
-        "tabla": tabla.to_dict(),
     }
-
-
-def kaplan_meier(df, var_tiempo, var_evento, var_grupo=None):
-    """Curva de Kaplan-Meier."""
-    from lifelines import KaplanMeierFitter
-    
-    if var_grupo:
-        kmfs = {}
-        for grupo in df[var_grupo].dropna().unique():
-            mask = df[var_grupo] == grupo
-            kmf = KaplanMeierFitter()
-            kmf.fit(df.loc[mask, var_tiempo], event_observed=df.loc[mask, var_evento], label=str(grupo))
-            kmfs[str(grupo)] = kmf
-        return kmfs
-    else:
-        kmf = KaplanMeierFitter()
-        kmf.fit(df[var_tiempo], event_observed=df[var_evento], label="Global")
-        return {"Global": kmf}
