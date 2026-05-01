@@ -1,16 +1,25 @@
 """
-STATlab - Aplicación de Escritorio para Análisis Estadístico
-Punto de entrada principal.
+STATlab - Punto de entrada principal.
+Framework: PyQt6
 """
 
 import sys
 import os
 
-# Añadir directorio actual al path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from app import STATlabApp
+from PyQt6.QtWidgets import QApplication
+from PyQt6.QtCore import Qt
+from app import MainWindow
 
 if __name__ == "__main__":
-    app = STATlabApp()
-    app.mainloop()
+    # Forzar modo claro profesional
+    os.environ["QT_QPA_PLATFORM"] = "cocoa"
+    
+    app = QApplication(sys.argv)
+    app.setStyle("Fusion")
+    
+    window = MainWindow()
+    window.show()
+    
+    sys.exit(app.exec())
