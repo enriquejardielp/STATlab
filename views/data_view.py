@@ -1,163 +1,149 @@
 """
-Vista de Datos - Tabla, tipos de variables, metadatos.
+Vista de Datos - Tabla de variables y metadatos.
 """
 
-import customtkinter as ctk
-import pandas as pd
-from database import get_dataframe, DB_PATH
-from tkinter import messagebox
-import os
-import json
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+    QFrame, QPushButton, QScrollArea, QGridLayout
+)
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QFont
+from database import import_dataset, get_dataframe
 
 
-class DataView:
+COLORS = {
+    "bg_primary": "#FAFAFA",
+    "bg_card": "#FFFFFF",
+    "text_primary": "#1A1A1A",
+    "text_secondary": "#6B7280",
+    "text_muted": "#9CA3AF",
+    "accent": "#2563EB",
+    "accent_hover": "#1D4ED8",
+    "border": "#E5E7EB",
+}
+
+
+class DataView(QWidget):
     """Vista de gestión de datos."""
     
-    def __init__(self, app, parent):
+    def __init__(self, app):
+        super().__init__()
         self.app = app
-        self.parent = parent
+        self.setStyleSheet(f"background-color: {COLORS['bg_primary']};")
         
-        self._build()
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(28, 24, 28, 20)
+        self.layout.setSpacing(12)
+        
+        # Header
+        header = QHBoxLayout()
+        title = QLabel("Gestión de Datos")
+        title.setFont(QFont("Inter", 20, QFont.Weight.Bold))
+        title.setStyleSheet(f"color: {COLORS['text_primary']};")
+        header.addWidget(title)
+        header.addStretch()
+        
+        btn_import = QPushButton("Importar nuevo dataset")
+        btn_import.setFont(QFont("Inter", 12, QFont.Weight.Medium))
+        btn_import.setFixedHeight(34)
+        btn_import.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_import.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLORS['accent']};
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 0 16px;
+            }}
+            QPushButton:hover {{
+                background-color: {COLORS['accent_hover']};
+            }}
+        """)
+        btn_import.clicked.connect(lambda: import_dataset(self.app))
+        header.addWidget(btn_import)
+        
+        self.layout.addLayout(header)
+        
+        # Área de contenido
+        self.content = QVBoxLayout()
+        self.layout.addLayout(self.content)
+        self.layout.addStretch()
     
-    def _build(self):
-        # Título
-        header = ctk.CTkFrame(self.parent, fg_color="transparent", height=50)
-        header.pack(fill="x", padx=28, pady=(24, 8))
-        header.pack_propagate(False)
-        
-        ctk.CTkLabel(
-            header,
-            text="Gestión de Datos",
-            font=ctk.CTkFont(family="Inter", size=20, weight="bold"),
-            text_color="#1A1A1A",
-        ).pack(side="left")
-        
-        # Botón importar
-        ctk.CTkButton(
-            header,
-            text="Importar nuevo dataset",
-            font=ctk.CTkFont(family="Inter", size=12, weight="500"),
-            fg_color="#2563EB",
-            hover_color="#1D4ED8",
-            corner_radius=8,
-            height=34,
-            command=lambda: self.app._on_import_click(),
-        ).pack(side="right", padx=(8, 0))
+    def refresh(self):
+        """Refresca la vista."""
+        # Limpiar
+        while self.content.count():
+            item = self.content.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
         
         if not self.app.dataset_loaded:
             self._show_empty()
             return
         
         # Info del dataset
-        info_frame = ctk.CTkFrame(
-            self.parent,
-            fg_color="#FFFFFF",
-            corner_radius=12,
-            border_width=1,
-            border_color="#E5E7EB",
-        )
-        info_frame.pack(fill="x", padx=28, pady=8)
-        
-        # Usar grid para las métricas
-        info_frame.columnconfigure((0, 1, 2, 3), weight=1)
+        info = QFrame()
+        info.setStyleSheet(f"""
+            QFrame {{
+                background-color: {COLORS['bg_card']};
+                border: 1px solid {COLORS['border']};
+                border-radius: 12px;
+                padding: 16px;
+            }}
+        """)
+        info_layout = QGridLayout(info)
+        info_layout.setSpacing(16)
         
         metrics = [
-            ("Dataset", self.app.dataset_name),
-            ("Registros", str(len(get_dataframe(self.app.table_name)))),
-            ("Variables", str(len(self.app.variables))),
-            ("Base de datos", "DuckDB (local)"),
+            ("DATASET", self.app.dataset_name),
+            ("REGISTROS", str(len(get_dataframe(self.app.table_name)))),
+            ("VARIABLES", str(len(self.app.variables))),
+            ("BASE DE DATOS", "DuckDB (local)"),
         ]
         
         for i, (label, value) in enumerate(metrics):
-            card = ctk.CTkFrame(info_frame, fg_color="transparent")
-            card.grid(row=0, column=i, padx=16, pady=14, sticky="nsew")
+            col = QVBoxLayout()
+            l = QLabel(label)
+            l.setFont(QFont("Inter", 9, QFont.Weight.Bold))
+            l.setStyleSheet(f"color: {COLORS['text_secondary']};")
+            col.addWidget(l)
             
-            ctk.CTkLabel(
-                card,
-                text=label.upper(),
-                font=ctk.CTkFont(family="Inter", size=9, weight="bold"),
-                text_color="#6B7280",
-            ).pack(anchor="w")
+            v = QLabel(value)
+            v.setFont(QFont("Inter", 15, QFont.Weight.DemiBold))
+            v.setStyleSheet(f"color: {COLORS['text_primary']};")
+            col.addWidget(v)
             
-            ctk.CTkLabel(
-                card,
-                text=value,
-                font=ctk.CTkFont(family="Inter", size=15, weight="600"),
-                text_color="#1A1A1A",
-            ).pack(anchor="w", pady=(2, 0))
+            info_layout.addLayout(col, 0, i)
+        
+        self.content.addWidget(info)
         
         # Tabla de variables
-        self._build_variables_table()
-    
-    def _show_empty(self):
-        empty = ctk.CTkFrame(
-            self.parent,
-            fg_color="#FFFFFF",
-            corner_radius=12,
-            border_width=1,
-            border_color="#E5E7EB",
-        )
-        empty.pack(fill="both", expand=True, padx=28, pady=20)
+        self.content.addSpacing(8)
         
-        ctk.CTkLabel(
-            empty,
-            text="No hay ningún dataset cargado",
-            font=ctk.CTkFont(family="Inter", size=14),
-            text_color="#6B7280",
-        ).pack(expand=True)
-    
-    def _build_variables_table(self):
-        """Tabla de variables con sus tipos."""
-        # Contenedor
-        container = ctk.CTkFrame(
-            self.parent,
-            fg_color="#FFFFFF",
-            corner_radius=12,
-            border_width=1,
-            border_color="#E5E7EB",
-        )
-        container.pack(fill="both", expand=True, padx=28, pady=8)
+        table_frame = QFrame()
+        table_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {COLORS['bg_card']};
+                border: 1px solid {COLORS['border']};
+                border-radius: 12px;
+            }}
+        """)
+        table_layout = QVBoxLayout(table_frame)
         
-        # Encabezado
-        ctk.CTkLabel(
-            container,
-            text="Variables del dataset",
-            font=ctk.CTkFont(family="Inter", size=14, weight="600"),
-            text_color="#1A1A1A",
-        ).pack(anchor="w", padx=20, pady=(16, 12))
+        title_vars = QLabel("Variables del dataset")
+        title_vars.setFont(QFont("Inter", 14, QFont.Weight.DemiBold))
+        title_vars.setStyleSheet(f"color: {COLORS['text_primary']};")
+        table_layout.addWidget(title_vars)
         
-        # Cabeceras de tabla
-        cols_frame = ctk.CTkFrame(container, fg_color="#F9FAFB", height=36)
-        cols_frame.pack(fill="x", padx=12)
-        cols_frame.pack_propagate(False)
+        # Scroll con variables
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; }")
         
-        headers = [
-            ("Variable", 25),
-            ("Tipo", 18),
-            ("Rol sugerido", 18),
-            ("Valores únicos", 13),
-            ("Faltantes", 10),
-            ("Descripción", 16),
-        ]
+        vars_widget = QWidget()
+        vars_layout = QVBoxLayout(vars_widget)
+        vars_layout.setSpacing(2)
         
-        for text, width_pct in headers:
-            ctk.CTkLabel(
-                cols_frame,
-                text=text,
-                font=ctk.CTkFont(family="Inter", size=10, weight="bold"),
-                text_color="#6B7280",
-                width=int(width_pct * 5),
-            ).pack(side="left", padx=8, pady=8)
-        
-        # Scroll de variables
-        var_scroll = ctk.CTkScrollableFrame(
-            container,
-            fg_color="transparent",
-            scrollbar_button_color="#E5E7EB",
-        )
-        var_scroll.pack(fill="both", expand=True, padx=4, pady=(0, 8))
-        
-        # Traducción de tipos para mostrar
         tipo_labels = {
             "numérica_continua": "Numérica continua",
             "numérica_discreta": "Numérica discreta",
@@ -167,41 +153,71 @@ class DataView:
             "texto_libre": "Texto libre",
         }
         
-        rol_labels = {
-            "dependiente": "Dependiente",
-            "independiente": "Independiente",
-            "ambos": "Ambos",
-            "id": "ID",
-            "fecha": "Fecha",
-            "texto_libre": "Texto libre",
-        }
-        
         for var_name, info in self.app.variables.items():
-            row = ctk.CTkFrame(var_scroll, fg_color="transparent", height=34)
-            row.pack(fill="x", pady=1)
-            row.pack_propagate(False)
+            row = QFrame()
+            row.setFixedHeight(34)
+            row.setStyleSheet("background: transparent;")
+            row_layout = QHBoxLayout(row)
+            row_layout.setContentsMargins(12, 0, 12, 0)
             
             tipo_display = tipo_labels.get(info.get("tipo", ""), info.get("tipo", "?"))
-            rol_display = rol_labels.get(info.get("sugerencia_rol", ""), info.get("sugerencia_rol", "?"))
             n_unique = info.get("valores_unicos", "?")
             faltantes = "Sí" if info.get("tiene_valores_faltantes") else "No"
             desc = info.get("descripcion", "")[:30]
             
-            valores = [
-                (var_name[:25], 25),
-                (tipo_display, 18),
-                (rol_display, 18),
-                (str(n_unique), 13),
-                (faltantes, 10),
-                (desc, 16),
-            ]
+            name_lbl = QLabel(var_name)
+            name_lbl.setFont(QFont("Inter", 11))
+            name_lbl.setStyleSheet(f"color: {COLORS['text_primary']};")
+            name_lbl.setMinimumWidth(180)
+            row_layout.addWidget(name_lbl)
             
-            for text, width_pct in valores:
-                ctk.CTkLabel(
-                    row,
-                    text=text,
-                    font=ctk.CTkFont(family="Inter", size=11),
-                    text_color="#1A1A1A" if width_pct > 15 else "#6B7280",
-                    width=int(width_pct * 5),
-                    anchor="w",
-                ).pack(side="left", padx=8, pady=6)
+            tipo_lbl = QLabel(tipo_display)
+            tipo_lbl.setFont(QFont("Inter", 10))
+            tipo_lbl.setStyleSheet(f"color: {COLORS['text_secondary']};")
+            tipo_lbl.setMinimumWidth(150)
+            row_layout.addWidget(tipo_lbl)
+            
+            uniq_lbl = QLabel(f"{n_unique} valores")
+            uniq_lbl.setFont(QFont("Inter", 10))
+            uniq_lbl.setStyleSheet(f"color: {COLORS['text_muted']};")
+            row_layout.addWidget(uniq_lbl)
+            
+            null_lbl = QLabel(f"Faltantes: {faltantes}")
+            null_lbl.setFont(QFont("Inter", 10))
+            null_lbl.setStyleSheet(f"color: {COLORS['text_muted']};")
+            row_layout.addWidget(null_lbl)
+            
+            desc_lbl = QLabel(desc)
+            desc_lbl.setFont(QFont("Inter", 10))
+            desc_lbl.setStyleSheet(f"color: {COLORS['text_muted']};")
+            row_layout.addWidget(desc_lbl)
+            
+            row_layout.addStretch()
+            vars_layout.addWidget(row)
+        
+        vars_layout.addStretch()
+        scroll.setWidget(vars_widget)
+        table_layout.addWidget(scroll)
+        
+        self.content.addWidget(table_frame)
+    
+    def _show_empty(self):
+        """Muestra estado vacío."""
+        empty = QFrame()
+        empty.setStyleSheet(f"""
+            QFrame {{
+                background-color: {COLORS['bg_card']};
+                border: 1px solid {COLORS['border']};
+                border-radius: 12px;
+            }}
+        """)
+        empty_layout = QVBoxLayout(empty)
+        empty_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        msg = QLabel("No hay ningún dataset cargado")
+        msg.setFont(QFont("Inter", 14))
+        msg.setStyleSheet(f"color: {COLORS['text_secondary']};")
+        msg.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_layout.addWidget(msg)
+        
+        self.content.addWidget(empty)
