@@ -5,6 +5,7 @@ STATlab - Clasificación inteligente de variables usando Ollama.
 import ollama
 import pandas as pd
 import json
+import numpy as np
 
 
 def classify_variables(df):
@@ -28,29 +29,32 @@ def classify_variables(df):
     info = {}
     for col in df.columns:
         dtype = str(df[col].dtype)
-        n_unique = df[col].nunique()
-        n_null = df[col].isna().sum()
+        n_unique = int(df[col].nunique())
+        n_null = int(df[col].isna().sum())
         
         if df[col].dtype in ['int64', 'float64', 'int32', 'float32']:
+            datos = df[col].dropna()
             info[col] = {
                 "tipo_python": "numérica",
-                "valores_unicos": int(n_unique),
-                "nulos": int(n_null),
-                "min": float(df[col].min()) if not df[col].dropna().empty else None,
-                "max": float(df[col].max()) if not df[col].dropna().empty else None,
-                "ejemplos": df[col].dropna().head(5).tolist(),
+                "valores_unicos": n_unique,
+                "nulos": n_null,
+                "min": float(datos.min()) if not datos.empty else None,
+                "max": float(datos.max()) if not datos.empty else None,
+                "ejemplos": datos.head(5).tolist() if not datos.empty else [],
             }
         else:
+            datos = df[col].dropna()
             info[col] = {
                 "tipo_python": "texto",
-                "valores_unicos": int(n_unique),
-                "nulos": int(n_null),
-                "categorias": df[col].dropna().unique()[:15].tolist(),
-                "ejemplos": df[col].dropna().head(5).tolist(),
+                "valores_unicos": n_unique,
+                "nulos": n_null,
+                "categorias": datos.unique()[:15].tolist() if not datos.empty else [],
+                "ejemplos": datos.head(5).tolist() if not datos.empty else [],
             }
     
-    # Prompt para Ollama
-    prompt = f"""
+    # Intentar clasificar con Ollama
+    try:
+        prompt = f"""
 Clasifica cada variable del siguiente dataset. Para cada una, determina:
 
 1. tipo: "numérica_continua", "numérica_discreta", "categórica_nominal", "categórica_ordinal", "categórica_dicotómica"
@@ -62,7 +66,6 @@ Variables: {json.dumps(info, ensure_ascii=False, indent=2)}
 Responde SOLO en JSON: {{"nombre_variable": {{"tipo": "...", "sugerencia_rol": "...", "descripcion": "..."}}}}
 """
 
-    try:
         respuesta = ollama.chat(
             model="llama3.2:1b",
             messages=[{"role": "user", "content": prompt}]
@@ -72,24 +75,41 @@ Responde SOLO en JSON: {{"nombre_variable": {{"tipo": "...", "sugerencia_rol": "
         
         # Extraer JSON
         if "```json" in texto:
-            texto = texto.split("```json")[1].split("```")[0]
+            texto = texto.split("```json")[1].split("```")[0].strip()
         elif "```" in texto:
-            texto = texto.split("```")[1].split("```")[0]
+            texto = texto.split("```")[1].split("```")[0].strip()
         
         clasificacion = json.loads(texto)
         
-        # Añadir info adicional
+        # Añadir info adicional y convertir tipos
         for col, data in clasificacion.items():
             if col in info:
-                data["valores_unicos"] = info[col]["valores_unicos"]
-                data["tiene_valores_faltantes"] = info[col]["nulos"] > 0
+                data["valores_unicos"] = int(info[col]["valores_unicos"])
+                data["tiene_valores_faltantes"] = bool(info[col]["nulos"] > 0)
                 data["tipo_python"] = info[col]["tipo_python"]
         
         return clasificacion
     
-    except Exception as e:
+    except Exception:
         # Fallback: clasificación heurística sin IA
         return _heuristic_classification(df)
+
+
+def _convert_to_native(obj):
+    """Convierte tipos numpy a tipos nativos de Python para serialización JSON."""
+    if isinstance(obj, (np.integer,)):
+        return int(obj)
+    elif isinstance(obj, (np.floating,)):
+        return float(obj)
+    elif isinstance(obj, (np.bool_,)):
+        return bool(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {k: _convert_to_native(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [_convert_to_native(i) for i in obj]
+    return obj
 
 
 def _heuristic_classification(df):
@@ -98,8 +118,9 @@ def _heuristic_classification(df):
     
     for col in df.columns:
         dtype = df[col].dtype
-        n_unique = df[col].nunique()
+        n_unique = int(df[col].nunique())
         n_total = len(df)
+        n_nulls = int(df[col].isna().sum())
         
         # ID detection
         if n_unique == n_total and df[col].dtype in ['int64', 'float64']:
@@ -142,7 +163,7 @@ def _heuristic_classification(df):
             "sugerencia_rol": rol,
             "descripcion": desc,
             "valores_unicos": n_unique,
-            "tiene_valores_faltantes": df[col].isna().sum() > 0,
+            "tiene_valores_faltantes": bool(n_nulls > 0),
             "tipo_python": str(dtype),
         }
     
