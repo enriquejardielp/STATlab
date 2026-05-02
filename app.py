@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QStackedWidget, QLabel, QPushButton, QFrame, QSizePolicy
 )
 from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtGui import QFont, QAction
+from PyQt6.QtGui import QFont
 from database import import_dataset, get_dataframe
 from views.data_view import DataView
 from views.analysis_view import AnalysisView
@@ -78,7 +78,7 @@ class MainWindow(QMainWindow):
         
         # Logo
         logo = QLabel("STATlab")
-        logo.setFont(QFont("Inter", 20, QFont.Weight.Bold))
+        logo.setFont(QFont("Helvetica Neue", 20, QFont.Weight.Bold))
         logo.setStyleSheet(f"color: {COLORS['text_primary']}; padding: 28px 20px 12px 20px;")
         sidebar_layout.addWidget(logo)
         
@@ -93,14 +93,14 @@ class MainWindow(QMainWindow):
         # Navegación
         nav_items = [
             ("Datos", "data"),
-            ("Análisis", "analysis"),
-            ("Gráficos", "graphs"),
+            ("Analisis", "analysis"),
+            ("Graficos", "graphs"),
         ]
         
         self.nav_buttons = {}
         for text, key in nav_items:
             btn = QPushButton(text)
-            btn.setFont(QFont("Inter", 13, QFont.Weight.Medium))
+            btn.setFont(QFont("Helvetica Neue", 13, QFont.Weight.Medium))
             btn.setFixedHeight(38)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setStyleSheet(f"""
@@ -125,8 +125,8 @@ class MainWindow(QMainWindow):
         sidebar_layout.addStretch()
         
         # Footer
-        footer = QLabel("v2.0 · Desktop")
-        footer.setFont(QFont("Inter", 10))
+        footer = QLabel("v2.0 - Desktop")
+        footer.setFont(QFont("Helvetica Neue", 10))
         footer.setStyleSheet(f"color: {COLORS['text_muted']}; padding: 0 0 16px 20px;")
         sidebar_layout.addWidget(footer)
         
@@ -170,19 +170,19 @@ class MainWindow(QMainWindow):
         card_layout.setSpacing(8)
         
         title = QLabel("STATlab")
-        title.setFont(QFont("Inter", 28, QFont.Weight.Bold))
+        title.setFont(QFont("Helvetica Neue", 28, QFont.Weight.Bold))
         title.setStyleSheet(f"color: {COLORS['text_primary']};")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         card_layout.addWidget(title)
         
-        subtitle = QLabel("Análisis estadístico profesional")
-        subtitle.setFont(QFont("Inter", 14))
+        subtitle = QLabel("Analisis estadistico profesional")
+        subtitle.setFont(QFont("Helvetica Neue", 14))
         subtitle.setStyleSheet(f"color: {COLORS['text_secondary']};")
         subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
         card_layout.addWidget(subtitle)
         
         desc = QLabel("Importa tus datos desde Excel o CSV y comienza a analizar.\nTodas las operaciones se ejecutan localmente.")
-        desc.setFont(QFont("Inter", 12))
+        desc.setFont(QFont("Helvetica Neue", 12))
         desc.setStyleSheet(f"color: {COLORS['text_muted']};")
         desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         desc.setWordWrap(True)
@@ -191,7 +191,7 @@ class MainWindow(QMainWindow):
         card_layout.addSpacing(16)
         
         btn = QPushButton("Importar dataset")
-        btn.setFont(QFont("Inter", 13, QFont.Weight.Medium))
+        btn.setFont(QFont("Helvetica Neue", 13, QFont.Weight.Medium))
         btn.setFixedSize(200, 38)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setStyleSheet(f"""
@@ -257,6 +257,6 @@ class MainWindow(QMainWindow):
         """Estilos globales."""
         self.setStyleSheet(f"""
             * {{
-                font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+                font-family: 'Helvetica Neue', -apple-system, 'Segoe UI', sans-serif;
             }}
         """)
